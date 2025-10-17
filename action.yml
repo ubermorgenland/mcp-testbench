@@ -118,7 +118,7 @@ runs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: mcp-security-report
+        name: mcp-security-report-${{ github.job }}
         path: ${{ inputs.output-dir }}/
         retention-days: 30
 
