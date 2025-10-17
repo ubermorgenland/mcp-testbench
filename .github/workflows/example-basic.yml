@@ -1,0 +1,36 @@
+name: MCP Security Scan - Basic
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security Test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start MCP Server
+        run: |
+          # Start your MCP server here
+          # Example: npm start &
+          # Or: python server.py &
+          # Wait for server to be ready
+          sleep 5
+
+      - name: Run MCP Security Tests
+        uses: ApInference/mcp-testbench@v1
+        with:
+          target: 'http://localhost:8000'
+          fail-on-score: 'C'
+
+      - name: Display Results
+        if: always()
+        run: |
+          cat ./mcp_testbench_report/SECURITY_BADGE.md
+          echo "Full report available in artifacts"

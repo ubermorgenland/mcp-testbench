@@ -1,0 +1,38 @@
+name: MCP Security Scan - Docker Mode
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan-docker:
+    runs-on: ubuntu-latest
+    name: Security Test (Docker Isolated)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run MCP Security Tests (Docker Mode)
+        uses: ApInference/mcp-testbench@v1
+        with:
+          docker-mode: 'true'
+          docker-path: '.'  # Path to your MCP server
+          fail-on-score: 'B'  # Stricter threshold for Docker mode
+          output-dir: './security-reports'
+
+      - name: Upload Badge to README
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          # Copy badge to a permanent location
+          mkdir -p badges
+          cp ./security-reports/SECURITY_BADGE.md badges/
+          # Commit badge (optional)
+          # git add badges/SECURITY_BADGE.md
+          # git commit -m "Update security badge"
+          # git push

@@ -1,0 +1,156 @@
+name: 'MCP Testbench Security Scan'
+description: 'Run security tests on your MCP server with Docker isolation'
+author: 'ApInference Team'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  target:
+    description: 'Target MCP server URL (e.g., http://localhost:8000) or use docker-mode'
+    required: false
+  docker-mode:
+    description: 'Enable Docker isolation mode (true/false)'
+    required: false
+    default: 'false'
+  docker-path:
+    description: 'Path to MCP server directory when using docker-mode'
+    required: false
+    default: '.'
+  output-dir:
+    description: 'Output directory for security reports'
+    required: false
+    default: './mcp_testbench_report'
+  fail-on-score:
+    description: 'Fail the build if security score is below this grade (A, B, C, D, F)'
+    required: false
+    default: 'C'
+
+outputs:
+  security-score:
+    description: 'Security score (A-F)'
+    value: ${{ steps.test.outputs.score }}
+  report-path:
+    description: 'Path to the generated JSON report'
+    value: ${{ steps.test.outputs.report }}
+  badge-path:
+    description: 'Path to the security badge markdown file'
+    value: ${{ steps.test.outputs.badge }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install MCP Testbench
+      shell: bash
+      run: |
+        pip install httpx>=0.24.0
+        echo "✅ Dependencies installed"
+
+    - name: Run Security Tests
+      id: test
+      shell: bash
+      run: |
+        # Determine test mode
+        if [ "${{ inputs.docker-mode }}" = "true" ]; then
+          echo "🐳 Running in Docker mode"
+          python ${{ github.action_path }}/cli.py run \
+            --docker \
+            --docker-path "${{ inputs.docker-path }}" \
+            --output "${{ inputs.output-dir }}" \
+            --verbose
+        else
+          echo "🎯 Running in direct mode"
+          if [ -z "${{ inputs.target }}" ]; then
+            echo "❌ Error: target is required when docker-mode is false"
+            exit 1
+          fi
+          python ${{ github.action_path }}/cli.py run \
+            "${{ inputs.target }}" \
+            --output "${{ inputs.output-dir }}" \
+            --verbose
+        fi
+
+        # Extract security score from report
+        SCORE=$(python -c "
+import json
+with open('${{ inputs.output-dir }}/mcp_testbench_report.json') as f:
+    data = json.load(f)
+# Compute score (simplified version)
+from ${{ github.action_path }}/reporter import compute_score
+score = compute_score(data)
+print(score)
+        ")
+
+        echo "score=$SCORE" >> $GITHUB_OUTPUT
+        echo "report=${{ inputs.output-dir }}/mcp_testbench_report.json" >> $GITHUB_OUTPUT
+        echo "badge=${{ inputs.output-dir }}/SECURITY_BADGE.md" >> $GITHUB_OUTPUT
+        echo "🛡️  Security Score: $SCORE"
+
+    - name: Check Security Score Threshold
+      shell: bash
+      run: |
+        SCORE="${{ steps.test.outputs.score }}"
+        THRESHOLD="${{ inputs.fail-on-score }}"
+
+        # Convert grades to numeric values for comparison
+        declare -A grades=( ["A"]=5 ["B"]=4 ["C"]=3 ["D"]=2 ["F"]=1 )
+
+        score_val=${grades[$SCORE]}
+        threshold_val=${grades[$THRESHOLD]}
+
+        echo "Security Score: $SCORE (${score_val})"
+        echo "Threshold: $THRESHOLD (${threshold_val})"
+
+        if [ $score_val -lt $threshold_val ]; then
+          echo "❌ Security score $SCORE is below threshold $THRESHOLD"
+          exit 1
+        else
+          echo "✅ Security score $SCORE meets threshold $THRESHOLD"
+        fi
+
+    - name: Upload Security Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: mcp-security-report
+        path: ${{ inputs.output-dir }}/
+        retention-days: 30
+
+    - name: Comment PR with Results
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const badge = fs.readFileSync('${{ steps.test.outputs.badge }}', 'utf8');
+          const score = '${{ steps.test.outputs.score }}';
+
+          const comment = `## 🛡️ MCP Security Scan Results
+
+${badge}
+
+**Security Score:** ${score}
+
+<details>
+<summary>View detailed report</summary>
+
+Download the full report from the workflow artifacts.
+
+</details>
+
+---
+*Powered by [MCP Testbench](https://github.com/ApInference/mcp-testbench)*
+          `;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
