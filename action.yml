@@ -131,22 +131,12 @@ runs:
           const badge = fs.readFileSync('${{ steps.test.outputs.badge }}', 'utf8');
           const score = '${{ steps.test.outputs.score }}';
 
-          const comment = `## 🛡️ MCP Security Scan Results
-
-${badge}
-
-**Security Score:** ${score}
-
-<details>
-<summary>View detailed report</summary>
-
-Download the full report from the workflow artifacts.
-
-</details>
-
----
-*Powered by [MCP Testbench](https://github.com/ubermorgenland/mcp-testbench)*
-          `;
+          const comment = '## 🛡️ MCP Security Scan Results\n\n' +
+            badge + '\n\n' +
+            '**Security Score:** ' + score + '\n\n' +
+            '<details>\n<summary>View detailed report</summary>\n\n' +
+            'Download the full report from the workflow artifacts.\n\n</details>\n\n' +
+            '---\n*Powered by [MCP Testbench](https://github.com/ubermorgenland/mcp-testbench)*';
 
           github.rest.issues.createComment({
             issue_number: context.issue.number,
