@@ -8,7 +8,10 @@ branding:
 
 inputs:
   target:
-    description: 'Target MCP server URL (e.g., http://localhost:8000) or use docker-mode'
+    description: 'Target MCP server URL (e.g., http://localhost:8000)'
+    required: false
+  stdio-cmd:
+    description: 'Stdio command to run MCP server (e.g., "npx time-mcp" or "node index.js")'
     required: false
   docker-mode:
     description: 'Enable Docker isolation mode (true/false)'
@@ -64,16 +67,21 @@ runs:
             --docker-path "${{ inputs.docker-path }}" \
             --output "${{ inputs.output-dir }}" \
             --verbose
-        else
-          echo "🎯 Running in direct mode"
-          if [ -z "${{ inputs.target }}" ]; then
-            echo "❌ Error: target is required when docker-mode is false"
-            exit 1
-          fi
+        elif [ -n "${{ inputs.stdio-cmd }}" ]; then
+          echo "📡 Running in stdio mode"
+          python ${{ github.action_path }}/cli.py run \
+            --stdio "${{ inputs.stdio-cmd }}" \
+            --output "${{ inputs.output-dir }}" \
+            --verbose
+        elif [ -n "${{ inputs.target }}" ]; then
+          echo "🎯 Running in HTTP mode"
           python ${{ github.action_path }}/cli.py run \
             "${{ inputs.target }}" \
             --output "${{ inputs.output-dir }}" \
             --verbose
+        else
+          echo "❌ Error: Must provide either target, stdio-cmd, or enable docker-mode"
+          exit 1
         fi
 
         # Extract security score from report
@@ -145,7 +153,7 @@ Download the full report from the workflow artifacts.
 </details>
 
 ---
-*Powered by [MCP Testbench](https://github.com/ApInference/mcp-testbench)*
+*Powered by [MCP Testbench](https://github.com/ubermorgenland/mcp-testbench)*
           `;
 
           github.rest.issues.createComment({
