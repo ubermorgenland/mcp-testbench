@@ -211,17 +211,27 @@ class TestEngine:
             return {"plugins": results}
 
         finally:
-            # Clean up process
+            # Clean up process properly to avoid asyncio warnings
             try:
+                # Close stdin first to signal EOF
+                if process.stdin:
+                    process.stdin.close()
+                    await process.stdin.wait_closed()
+
+                # Terminate process
                 process.terminate()
                 await asyncio.wait_for(process.wait(), timeout=5)
-            except:
+            except asyncio.TimeoutError:
+                # Force kill if terminate didn't work
                 process.kill()
                 await process.wait()
-
-            # Suppress asyncio cleanup warnings
-            import warnings
-            warnings.filterwarnings("ignore", message=".*Event loop is closed.*")
+            except Exception:
+                # Fallback: force kill
+                try:
+                    process.kill()
+                    await process.wait()
+                except:
+                    pass
 
 if __name__ == "__main__":
     import asyncio, json
