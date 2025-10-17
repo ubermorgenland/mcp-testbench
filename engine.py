@@ -219,6 +219,10 @@ class TestEngine:
                 process.kill()
                 await process.wait()
 
+            # Suppress asyncio cleanup warnings
+            import warnings
+            warnings.filterwarnings("ignore", message=".*Event loop is closed.*")
+
 if __name__ == "__main__":
     import asyncio, json
     engine = TestEngine()
