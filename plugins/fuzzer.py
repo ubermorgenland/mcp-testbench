@@ -69,10 +69,13 @@ class Fuzzer(Plugin):
 
                 # Analyze response
                 is_crash = response.status_code == 500
-                is_unexpected = response.status_code not in [200, 400, 404, 405, 500]
+                is_timeout = response.status_code == 504
+                is_unexpected = response.status_code not in [200, 400, 404, 405, 500, 504]
 
                 if is_crash:
                     crashes += 1
+                if is_timeout:
+                    timeouts += 1
                 if is_unexpected:
                     unexpected_responses += 1
 
@@ -80,6 +83,7 @@ class Fuzzer(Plugin):
                     "test_name": test["name"],
                     "status_code": response.status_code,
                     "crash": is_crash,
+                    "timeout": is_timeout,
                     "unexpected": is_unexpected,
                     "response_size": len(response.content)
                 })
@@ -92,10 +96,14 @@ class Fuzzer(Plugin):
                     "crash": False
                 })
             except Exception as e:
+                # Connection lost or broken pipe means server crashed
+                is_server_crash = "Connection lost" in str(e) or "Broken pipe" in str(e) or "pipe closed" in str(e).lower()
+                if is_server_crash:
+                    crashes += 1
                 test_results.append({
                     "test_name": test["name"],
                     "error": str(e),
-                    "crash": False
+                    "crash": is_server_crash
                 })
 
         # Calculate risk

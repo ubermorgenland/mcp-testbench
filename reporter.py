@@ -36,8 +36,9 @@ def compute_score(results: dict) -> str:
         if "crashes" in plugin_res:
             crashes = plugin_res.get("crashes", 0)
             timeouts = plugin_res.get("timeouts", 0)
+            # Crashes and timeouts are equally serious (both are DoS vulnerabilities)
             score -= crashes * 10
-            score -= timeouts * 5
+            score -= timeouts * 10  # Timeouts are just as bad as crashes
 
         # Risk level penalties
         risk_level = plugin_res.get("risk_level", "NONE")

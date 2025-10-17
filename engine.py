@@ -37,22 +37,43 @@ class StdioClient:
         self.process = process
         self._request_id = 0
 
-    async def post(self, path: str, json: dict = None, **kwargs):
+    async def post(self, path: str, json: dict = None, content: bytes = None, **kwargs):
         """Send JSON-RPC request via stdin, read response from stdout."""
         self._request_id += 1
 
-        # Prepare JSON-RPC request
-        request = {
-            "jsonrpc": "2.0",
-            "id": self._request_id,
-            "method": json.get("method") if json else "initialize",
-            "params": json.get("params", {}) if json else {}
-        }
+        # Check if raw content is provided (for fuzzing)
+        if content is not None:
+            # Send raw content directly without JSON-RPC wrapping
+            if isinstance(content, str):
+                request_str = content + "\n"
+            else:
+                request_str = content.decode() + "\n" if isinstance(content, bytes) else str(content) + "\n"
+        elif json == "":
+            # Empty string payload
+            request_str = "\n"
+        elif isinstance(json, str):
+            # Raw string payload (for invalid JSON fuzzing)
+            request_str = json + "\n"
+        elif json is None:
+            # Null payload
+            request_str = "null\n"
+        else:
+            # Normal JSON-RPC request
+            request = {
+                "jsonrpc": "2.0",
+                "id": self._request_id,
+                "method": json.get("method") if isinstance(json, dict) and json.get("method") else "initialize",
+                "params": json.get("params", {}) if isinstance(json, dict) else {}
+            }
+            request_str = json_lib.dumps(request) + "\n"
 
         # Send to stdin
-        request_str = json_lib.dumps(request) + "\n"
-        self.process.stdin.write(request_str.encode())
-        await self.process.stdin.drain()
+        try:
+            self.process.stdin.write(request_str.encode())
+            await self.process.stdin.drain()
+        except (BrokenPipeError, ConnectionResetError) as e:
+            # Server crashed or closed connection
+            raise Exception("Connection lost") from e
 
         # Read from stdout (with timeout)
         try:
@@ -60,6 +81,9 @@ class StdioClient:
                 self.process.stdout.readline(),
                 timeout=5.0
             )
+            if not line:
+                # Empty line means server closed stdout (crashed)
+                raise Exception("Connection lost")
             response_data = json_lib.loads(line.decode())
 
             # Create HTTP-like response object

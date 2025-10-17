@@ -114,11 +114,19 @@ runs:
           echo "✅ Security score $SCORE meets threshold $THRESHOLD"
         fi
 
+    - name: Generate unique artifact name
+      shell: bash
+      run: |
+        # Create unique artifact name using timestamp and random string
+        ARTIFACT_NAME="mcp-security-report-$(date +%s)-$RANDOM"
+        echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+      id: artifact
+
     - name: Upload Security Report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: mcp-security-report-${{ github.job }}
+        name: ${{ steps.artifact.outputs.artifact_name }}
         path: ${{ inputs.output-dir }}/
         retention-days: 30
 
