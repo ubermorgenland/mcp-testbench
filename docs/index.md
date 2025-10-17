@@ -38,17 +38,17 @@ cat ./mcp_testbench_report/mcp_testbench_report.json | python -m json.tool
 
 We tested popular MCP servers and found critical vulnerabilities:
 
-| Server | Grade | Crashes | Status |
+| Server | Grade | Issues | Status |
 |--------|-------|---------|--------|
-| **time-mcp** | F | 5/14 (36%) | ❌ Critical |
-| **docker-mcp** | F | 12/14 (86%) | ❌ Critical |
+| **time-mcp** | F | 5 timeouts (36%) | ❌ Critical DoS |
+| **docker-mcp** | F | 12 crashes (86%) | ❌ Critical |
 
 Both fail on:
-- Empty payloads → 500 crash
-- Invalid JSON structure → 500 crash
-- Missing required fields → 500 crash
-- Huge strings (100KB) → Memory exhaustion
-- Unicode exploits → 500 crash
+- Empty payloads → timeout/crash
+- Invalid JSON structure → timeout/crash
+- Missing required fields → timeout/crash
+- Huge strings (100KB) → timeout/crash
+- Unicode exploits → timeout/crash
 
 [See detailed crash analysis →](crash-analysis.md)
 

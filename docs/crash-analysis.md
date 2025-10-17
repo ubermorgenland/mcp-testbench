@@ -596,7 +596,7 @@ mcp-testbench run --stdio "npx your-mcp-server"
 ## 💡 Why This Matters
 
 **Current State:**
-- time-mcp: F grade (5 crashes)
+- time-mcp: F grade (5 timeouts - DoS vulnerability)
 - docker-mcp: F grade (12 crashes)
 
 **After Fixes:**
@@ -616,19 +616,19 @@ mcp-testbench run --stdio "npx your-mcp-server"
 ## 📝 Example Bug Report for time-mcp
 
 ```markdown
-**Title:** [Security] Multiple DoS vulnerabilities in input handling
+**Title:** [Security] Multiple DoS vulnerabilities - server hangs on malformed input
 
 **Severity:** Critical
 
 **Description:**
-time-mcp crashes when receiving malformed JSON-RPC requests, allowing attackers to perform denial-of-service attacks.
+time-mcp hangs (times out) when receiving malformed JSON-RPC requests, allowing attackers to perform denial-of-service attacks by exhausting server resources.
 
 **Vulnerabilities Found:**
-1. Empty payload → 500 error (crash)
-2. Array instead of object → 500 error (crash)
-3. Missing method field → 500 error (crash)
-4. Huge strings (100KB) → 500 error (crash)
-5. Unicode exploits → 500 error (crash)
+1. Invalid JSON → 504 timeout (server hangs)
+2. Null payload → 504 timeout (server hangs)
+3. Invalid method type (number) → 504 timeout (server hangs)
+4. Null bytes in strings → 504 timeout (server hangs)
+5. Deeply nested objects → 504 timeout (CPU exhaustion)
 
 **Steps to Reproduce:**
 ```bash
@@ -638,7 +638,7 @@ pip install mcp-testbench
 # Test time-mcp
 mcp-testbench run --stdio "npx time-mcp"
 
-# Result: Security Score F, 5 crashes detected
+# Result: Security Score F, 5 timeouts detected (DoS vulnerability)
 ```
 
 **Expected Behavior:**
@@ -655,12 +655,12 @@ Server should return proper JSON-RPC error responses:
 ```
 
 **Actual Behavior:**
-Server returns 500 errors and crashes.
+Server hangs and times out (504 errors). Consumes resources indefinitely.
 
 **Impact:**
-- Attackers can crash the server remotely
-- No input validation
-- DoS vulnerability
+- Attackers can hang the server remotely
+- Resource exhaustion (CPU/memory)
+- Critical DoS vulnerability - worse than crashes
 
 **Recommended Fix:**
 Add input validation as shown in [CRASH_ANALYSIS.md](link)
