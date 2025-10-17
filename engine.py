@@ -65,7 +65,14 @@ class StdioClient:
             # Create HTTP-like response object
             class StdioResponse:
                 def __init__(self, data):
-                    self.status_code = 200 if "result" in data else 500
+                    # JSON-RPC errors should return 200/400, not 500
+                    # Only return 500 if the response is malformed or missing jsonrpc
+                    if "error" in data and "jsonrpc" in data:
+                        self.status_code = 400  # JSON-RPC error (properly handled)
+                    elif "result" in data:
+                        self.status_code = 200  # Success
+                    else:
+                        self.status_code = 500  # Malformed response (actual crash)
                     self._data = data
                     self.headers = {}
 
