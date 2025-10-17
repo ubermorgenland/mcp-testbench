@@ -85,15 +85,7 @@ runs:
         fi
 
         # Extract security score from report
-        SCORE=$(python -c "
-import json
-with open('${{ inputs.output-dir }}/mcp_testbench_report.json') as f:
-    data = json.load(f)
-# Compute score (simplified version)
-from ${{ github.action_path }}/reporter import compute_score
-score = compute_score(data)
-print(score)
-        ")
+        SCORE=$(python -c "import json, sys; sys.path.insert(0, '${{ github.action_path }}'); from reporter import compute_score; data = json.load(open('${{ inputs.output-dir }}/mcp_testbench_report.json')); print(compute_score(data))")
 
         echo "score=$SCORE" >> $GITHUB_OUTPUT
         echo "report=${{ inputs.output-dir }}/mcp_testbench_report.json" >> $GITHUB_OUTPUT
